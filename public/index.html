@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RenderOS Remote Browser</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+        #toolbar {
+            width: 100%;
+            max-width: 1024px;
+            background: #333;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            box-sizing: border-box;
+        }
+        #toolbar button {
+            background: #555;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        #toolbar button:hover { background: #777; }
+        #url-bar {
+            flex-grow: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            background: #222;
+            color: white;
+        }
+        #screen {
+            max-width: 1024px;
+            max-height: calc(100vh - 60px);
+            width: 100%;
+            object-fit: contain;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <button id="btn-back">⬅️</button>
+        <button id="btn-forward">➡️</button>
+        <button id="btn-reload">🔄</button>
+        <input type="text" id="url-bar" placeholder="Enter URL...">
+        <button id="btn-go">Go</button>
+        <button id="btn-save" style="background: #e67e22;">Save Login</button>
+    </div>
+
+    <!-- draggable="false" stops the local browser from treating it like a standard image -->
+    <img id="screen" src="" alt="Browser Stream Offline" draggable="false">
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

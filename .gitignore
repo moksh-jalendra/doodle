@@ -1,0 +1,13 @@
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Mac/Windows system files
+.DS_Store
+Thumbs.db
+
+# Environment variables (if you add them later)
+.env
+
+# Puppeteer local cache
+.cache/

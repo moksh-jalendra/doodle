@@ -3,13 +3,17 @@ const http = require('http');
 const { Server } = require('socket.io');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const AdblockerPlugin = require('puppeteer-extra-plugin-adblocker');
 const path = require('path');
 const { db, doc, setDoc, getDoc } = require('./firebase.js');
 
-// Configure Stealth Plugin to STOP randomizing your fingerprint
+// Configure Stealth Plugin
 const stealth = StealthPlugin();
 stealth.enabledEvasions.delete('user-agent-override'); 
 puppeteer.use(stealth);
+
+// Configure Adblocker Plugin to save Render CPU/RAM
+puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 
 const app = express();
 const server = http.createServer(app);
@@ -20,14 +24,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 let browser, page, cdpClient;
 let autoSyncInterval;
 
-// The exact fingerprint of a standard Windows Chrome browser
 const REAL_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 function sanitizeForFirebase(obj) {
     return JSON.parse(JSON.stringify(obj || {}));
 }
 
-// Extract everything (Cookies, LocalStorage, AND SessionStorage)
 async function syncSessionToFirebase() {
     if (!page || page.isClosed()) return;
     
@@ -109,22 +111,19 @@ async function startRemoteBrowser() {
         } catch (e) {}
     });
 
-    // === INJECT ALL DEVICE DATA FROM FIREBASE ===
     try {
         const docSnap = await getDoc(doc(db, "browser_sessions", "render_os_profile"));
         if (docSnap.exists()) {
             const savedSessionData = docSnap.data();
             
-            // Restore Cookies (WITH PARTITION KEY BUG FIX)
             if (savedSessionData.cookies && savedSessionData.cookies.length > 0) {
                 const safeCookies = savedSessionData.cookies.map(cookie => {
-                    const { partitionKey, ...safeCookie } = cookie; // Strip partitionKey
+                    const { partitionKey, ...safeCookie } = cookie;
                     return safeCookie;
                 });
                 await page.setCookie(...safeCookies);
             }
             
-            // Restore Local and Session Storage
             await page.evaluateOnNewDocument((data) => {
                 if (data.localStorage) {
                     for (const key in data.localStorage) {
@@ -148,7 +147,6 @@ async function startRemoteBrowser() {
 
     await page.goto('https://google.com', { waitUntil: 'networkidle2' });
 
-    // Sync every 15 seconds
     autoSyncInterval = setInterval(syncSessionToFirebase, 15000);
 }
 

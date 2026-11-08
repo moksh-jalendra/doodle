@@ -8,7 +8,7 @@ const { db, doc, setDoc, getDoc } = require('./firebase.js');
 
 // Configure Stealth Plugin to STOP randomizing your fingerprint
 const stealth = StealthPlugin();
-stealth.enabledEvasions.delete('user-agent-override'); // We will set a static one manually
+stealth.enabledEvasions.delete('user-agent-override'); 
 puppeteer.use(stealth);
 
 const app = express();
@@ -20,7 +20,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 let browser, page, cdpClient;
 let autoSyncInterval;
 
-// The exact fingerprint of a standard Windows Chrome browser. NEVER CHANGE THIS.
+// The exact fingerprint of a standard Windows Chrome browser
 const REAL_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 function sanitizeForFirebase(obj) {
@@ -36,13 +36,11 @@ async function syncSessionToFirebase() {
         const storageData = await page.evaluate(() => {
             const ls = {};
             const ss = {};
-            // Grab LocalStorage
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 const val = localStorage.getItem(key);
                 if (val !== null && val !== undefined) ls[key] = val;
             }
-            // Grab SessionStorage
             for (let i = 0; i < sessionStorage.length; i++) {
                 const key = sessionStorage.key(i);
                 const val = sessionStorage.getItem(key);
@@ -57,7 +55,6 @@ async function syncSessionToFirebase() {
             sessionStorage: sanitizeForFirebase(storageData.ss)
         };
 
-        // Saved as a universal device profile in Firebase
         await setDoc(doc(db, "browser_sessions", "render_os_profile"), sessionState);
         console.log("🔄 Background Sync: Full Device Profile saved to Firebase.");
         io.emit('session_saved_success');
@@ -84,7 +81,6 @@ async function startRemoteBrowser() {
 
     page = await browser.newPage();
     
-    // 1. Lock the device fingerprint so Cloudflare trusts returning cookies
     await page.setUserAgent(REAL_USER_AGENT);
     await page.setViewport({ width: 1024, height: 768, deviceScaleFactor: 1 });
     await page.setExtraHTTPHeaders({
@@ -113,18 +109,22 @@ async function startRemoteBrowser() {
         } catch (e) {}
     });
 
-    // === 2. INJECT ALL DEVICE DATA FROM FIREBASE ===
+    // === INJECT ALL DEVICE DATA FROM FIREBASE ===
     try {
         const docSnap = await getDoc(doc(db, "browser_sessions", "render_os_profile"));
         if (docSnap.exists()) {
             const savedSessionData = docSnap.data();
             
-            // Restore Cookies
+            // Restore Cookies (WITH PARTITION KEY BUG FIX)
             if (savedSessionData.cookies && savedSessionData.cookies.length > 0) {
-                await page.setCookie(...savedSessionData.cookies);
+                const safeCookies = savedSessionData.cookies.map(cookie => {
+                    const { partitionKey, ...safeCookie } = cookie; // Strip partitionKey
+                    return safeCookie;
+                });
+                await page.setCookie(...safeCookies);
             }
             
-            // Restore Local and Session Storage BEFORE the page loads
+            // Restore Local and Session Storage
             await page.evaluateOnNewDocument((data) => {
                 if (data.localStorage) {
                     for (const key in data.localStorage) {
